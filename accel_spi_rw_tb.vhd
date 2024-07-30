@@ -27,6 +27,9 @@ architecture sim of accel_spi_rw_tb is
 	
 	signal ID_AD, ID_1D, DATA_X, DATA_Y, DATA_Z  : STD_LOGIC_VECTOR(7 downto 0);
 
+    constant T_SCLK_HI : time := 50ns;
+    constant T_SCLK_LO : time := 50ns;
+
 begin
 
 	--100MHz clock
@@ -64,9 +67,18 @@ begin
 
     s_chk_spi_sclk : process (ACL_SCLK) 
     begin
-        assert  ACL_SCLK = '0'
-        report "Error: Reset condition should have ACL_SCLK = '0'"
-        severity failure;
+        if ACL_SCLK'EVENT then
+            if (ACL_SCLK = '1') then
+                assert  (ACL_SCLK'LAST_EVENT >= T_SCLK_HI) 
+                report "Error: SPI SCLK violated logic high width time."
+                severity failure;
+            else 
+                ACL_SCLK'EVENT then
+                assert  (ACL_SCLK'LAST_EVENT >= T_SCLK_LO) 
+                report "Error: SPI SCLK violated logic low width time."
+                severity failure;
+            end if;
+        end if;
     end process;
 	
 	--ACL Model
