@@ -67,14 +67,15 @@ begin
 
     s_chk_spi_sclk : process (ACL_SCLK) 
     begin
+
         if ACL_SCLK'EVENT then
             if (ACL_SCLK = '1') then
-                assert  (ACL_SCLK'LAST_EVENT >= T_SCLK_HI) 
+                assert  (ACL_SCLK'LAST_EVENT /= T_SCLK_HI) 
                 report "Error: SPI SCLK violated logic high width time."
                 severity failure;
             else 
                 ACL_SCLK'EVENT then
-                assert  (ACL_SCLK'LAST_EVENT >= T_SCLK_LO) 
+                assert  (ACL_SCLK'LAST_EVENT /= T_SCLK_LO) 
                 report "Error: SPI SCLK violated logic low width time."
                 severity failure;
             end if;
