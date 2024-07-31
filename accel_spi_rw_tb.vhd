@@ -27,9 +27,11 @@ architecture sim of accel_spi_rw_tb is
 	
 	signal ID_AD, ID_1D, DATA_X, DATA_Y, DATA_Z  : STD_LOGIC_VECTOR(7 downto 0);
 
+    signal prev_acl_sclk : std_logic;
+    signal csb_counter : unsigned(4 downto 0);
+    
     constant T_SCLK_HI : time := 50ns;
     constant T_SCLK_LO : time := 50ns;
-
 begin
 
 	--100MHz clock
@@ -44,6 +46,7 @@ begin
 	--Main testbench process
 	process
 	begin
+	    -- Verify correct state behavior after reset
 		reset <= '1';
 		wait for 1 ns;
 		
@@ -58,29 +61,78 @@ begin
 		wait for 100 ns;
 		reset <= '0';
 		
-		--TODO: Add Verification for DATA_X, Y, Z, and ID_AD/1D
+		-- Verify registers are all read correctly (from Caroline Hagen)
+		wait for 10 ms; -- wait100ms timer shortened to 1 ms for testbench
+		assert ID_AD = x"AD"
+        report "Error: ID_AD should be 0xAD after reading register 0x00"
+        severity failure;
+
+        -- Check the value of ID_1D
+        assert ID_1D = x"1D"
+        report "Error: ID_1D should be 0x1D"
+        severity failure;
+
+        -- Check the value of DATA_X
+        assert DATA_X = x"12"
+        report "Error: DATA_X should be X_VAL"
+        severity failure;
+
+        -- Check the value of DATA_Y
+        assert DATA_Y = x"34"
+        report "Error: DATA_Y should be Y_VAL"
+        severity failure;
+
+        -- Check the value of DATA_Z
+        assert DATA_Z = x"56"
+        report "Error: DATA_Z should be Z_VAL"
+        severity failure;
+		
+		
 		--TODO: Verify acl_enabled goes high after initial write
 		--			This can be done through the waveform viewer or by writing checks in the testbench
 		
 		wait;
 	end process;
-
-    s_chk_spi_sclk : process (ACL_SCLK) 
+	
+	-- ACL SCLK Width Check (from Kevin Nguyen)
+	s_chk_spi_sclk : process (ACL_SCLK) 
     begin
-
         if ACL_SCLK'EVENT then
             if (ACL_SCLK = '1') then
                 assert  (ACL_SCLK'LAST_EVENT /= T_SCLK_HI) 
                 report "Error: SPI SCLK violated logic high width time."
                 severity failure;
             else 
-                ACL_SCLK'EVENT then
-                assert  (ACL_SCLK'LAST_EVENT /= T_SCLK_LO) 
+                -- ACL_SCLK'EVENT then
+                assert  (ACL_SCLK'LAST_EVENT /= T_SCLK_LO)
                 report "Error: SPI SCLK violated logic low width time."
                 severity failure;
             end if;
         end if;
     end process;
+	
+	
+	-- Test tming of CSb (from Bill Lee)
+	process(clk, reset)
+    begin
+        if reset = '1' then
+            csb_counter <= (others => '0');
+        elsif(rising_edge(clk)) then
+            if prev_acl_sclk = '0' and ACL_SCLK = '1' then
+                if ACL_CSN = '0' then
+                    csb_counter <= csb_counter + 1;  
+                else
+                    assert csb_counter <= 24
+                    report "Error: Chip select is driven low for more than 24 SCLK cycles"
+                    severity failure;
+                    csb_counter <= (others=>'0');
+                end if;
+            end if;
+            prev_acl_sclk <= ACL_SCLK;
+        end if;
+    end process;
+    
+    
 	
 	--ACL Model
 	ACL_DUMMY : entity acl_model port map (
